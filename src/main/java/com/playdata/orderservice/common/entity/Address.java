@@ -16,5 +16,5 @@ public class Address {
     
     private String city; // 시
     private String street; // 도
-    private String zipcode; // 우편번호
+    private String zipCode; // 우편번호
 }

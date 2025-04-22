@@ -24,7 +24,7 @@ class UserRepositoryTest {
         Address addr = Address.builder()
                 .city("서울특별시")
                 .street("효령로 335")
-                .zipcode("12345")
+                .zipCode("12345")
                 .build();
 
         User user = User.builder()
