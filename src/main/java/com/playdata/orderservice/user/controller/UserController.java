@@ -1,6 +1,7 @@
 package com.playdata.orderservice.user.controller;
 
 import com.playdata.orderservice.common.auth.JwtTokenProvider;
+import com.playdata.orderservice.common.dto.CommonErrorDto;
 import com.playdata.orderservice.common.dto.CommonResDto;
 import com.playdata.orderservice.user.dto.UserLoginReqDto;
 import com.playdata.orderservice.user.dto.UserResDto;
@@ -9,6 +10,7 @@ import com.playdata.orderservice.user.entity.User;
 import com.playdata.orderservice.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -24,13 +26,14 @@ import java.util.concurrent.TimeUnit;
 @RestController
 @RequestMapping("/user") // user 관련 요청은 /user로 시작한다고 가정.
 @RequiredArgsConstructor
+@Slf4j
 public class UserController {
 
-    // 컨트롤러는 서비스에 의존하고 있다. (요청과 함께 전달받은 데이털르 서비스에게 넘겨야 함!)
+    // 컨트롤러는 서비스에 의존하고 있다. (요청과 함께 전달받은 데이터를 서비스에게 넘겨야 함!)
     // 빈 등록된 서비스 객체를 자동으로 주입 받자!
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RedisTemplate redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /*
      프론트 단에서 회원 가입 요청 보낼때 함께 보내는 데이터 (JSON) -> dto로 받자.
@@ -45,20 +48,21 @@ public class UserController {
         }
      }
      */
-
     @PostMapping("/create")
-    public ResponseEntity<?> userCreate(@Valid @RequestBody UserSaveReqDto dto) { // @Valid -> 검증
-        System.out.println("dto = " + dto);
+    public ResponseEntity<?> userCreate(@Valid @RequestBody UserSaveReqDto dto) {
         // 화면단에서 전달된 데이터를 DB에 넣자.
         // 혹시 이메일이 중복되었는가? -> 이미 이전에 회원가입을 한 회원이라면 거절.
         // dto를 DB에 바로 때려? -> dto를 entity로 바꾸는 로직 추가.
-        User saved = userService.userCreate(dto);
 
+
+        User saved = userService.userCreate(dto);
         // ResponseEntity는 응답을 줄 때 다양한 정보를 한번에 포장해서 넘길 수 있습니다.
         // 요청에 따른 응답 상태 코드, 응답 헤더에 정보를 추가, 일관된 응답 처리를 제공합니다.
+
         CommonResDto resDto
                 = new CommonResDto(HttpStatus.CREATED,
                 "User Created", saved.getName());
+
         return new ResponseEntity<>(resDto, HttpStatus.CREATED);
     }
 
@@ -80,7 +84,7 @@ public class UserController {
         String refreshToken
                 = jwtTokenProvider.createRefreshToken(user.getEmail(), user.getRole().toString());
 
-        // refreshToken을 DB에 저장하자.
+        // refreshToken을 DB에 저장하자. (redis)
 //        userService.saveRefreshToken(user.getEmail(), refreshToken);
         redisTemplate.opsForValue().set("user:refresh:" + user.getId(), refreshToken, 2, TimeUnit.MINUTES);
 
@@ -103,7 +107,6 @@ public class UserController {
     // /list?number=1&size=10&sort=name,desc 요런 식으로.
     // 요청 시 쿼리스트링이 전달되지 않으면 기본값 0, 20, unsorted
     public ResponseEntity<?> getUserList(Pageable pageable) {
-        System.out.println("pageable = " + pageable);
         List<UserResDto> dtoList = userService.userList(pageable);
         CommonResDto resDto
                 = new CommonResDto(HttpStatus.OK, "userList 조회 성공", dtoList);
@@ -122,5 +125,37 @@ public class UserController {
         return new ResponseEntity<>(resDto, HttpStatus.OK);
     }
 
+    // access token이 만료되어 새 토큰을 요청
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> map) {
+        String id = map.get("id");
+        log.info("/user/refresh: POST, id: {}", id);
+        // redis에 해당 id로 조회되는 내용이 있는지 확인
+        Object obj = redisTemplate.opsForValue().get("user:refresh:" + id);
+        log.info("obj: {}", obj);
+        if (obj == null) { // refresh token이 수명이 다됨.
+            return new ResponseEntity<>(new CommonErrorDto(
+                    HttpStatus.UNAUTHORIZED, "재 로그인 필요!"),
+                    HttpStatus.UNAUTHORIZED);
+        }
+        // 새로운 access token을 발급
+        User user = userService.findById(id);
+        String newAccessToken
+                = jwtTokenProvider.createToken(user.getEmail(), user.getRole().toString());
+
+        Map<String, Object> info = new HashMap<>();
+        info.put("token", newAccessToken);
+        CommonResDto resDto
+                = new CommonResDto(HttpStatus.OK, "새 토큰 발급됨", info);
+        return ResponseEntity.ok().body(resDto);
+    }
+
 
 }
+
+
+
+
+
+
+
