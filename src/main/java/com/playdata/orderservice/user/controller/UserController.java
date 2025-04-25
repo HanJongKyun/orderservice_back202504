@@ -10,6 +10,7 @@ import com.playdata.orderservice.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/user") // user 관련 요청은 /user로 시작한다고 가정.
@@ -28,6 +30,7 @@ public class UserController {
     // 빈 등록된 서비스 객체를 자동으로 주입 받자!
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RedisTemplate redisTemplate;
 
     /*
      프론트 단에서 회원 가입 요청 보낼때 함께 보내는 데이터 (JSON) -> dto로 받자.
@@ -79,6 +82,7 @@ public class UserController {
 
         // refreshToken을 DB에 저장하자.
 //        userService.saveRefreshToken(user.getEmail(), refreshToken);
+        redisTemplate.opsForValue().set("user:refresh:" + user.getId(), refreshToken, 2, TimeUnit.MINUTES);
 
         // Map을 이용해서 사용자의 id와 token을 포장하자.
         Map<String, Object> loginInfo = new HashMap<>();
@@ -98,7 +102,7 @@ public class UserController {
     // 컨트롤러 파라미터 Pageable 선언하면 페이징 파라미터 처리를 쉽게 할 수 있음.
     // /list?number=1&size=10&sort=name,desc 요런 식으로.
     // 요청 시 쿼리스트링이 전달되지 않으면 기본값 0, 20, unsorted
-    public ResponseEntity<?> getUserList(Pageable pageable){
+    public ResponseEntity<?> getUserList(Pageable pageable) {
         System.out.println("pageable = " + pageable);
         List<UserResDto> dtoList = userService.userList(pageable);
         CommonResDto resDto
