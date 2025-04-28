@@ -3,6 +3,7 @@ package com.playdata.orderservice.product.controller;
 import com.playdata.orderservice.common.dto.CommonResDto;
 import com.playdata.orderservice.product.dto.ProductResDto;
 import com.playdata.orderservice.product.dto.ProductSaveReqDto;
+import com.playdata.orderservice.product.dto.ProductSearchDto;
 import com.playdata.orderservice.product.entity.Product;
 import com.playdata.orderservice.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -56,11 +57,12 @@ public class ProductController {
     // ProductResDto(id, name, category, price, stockQuantity, imagePath)
 
     @GetMapping("/list")
-    public ResponseEntity<?> listProduct(Pageable pageable) {
+    public ResponseEntity<?> listProduct(ProductSearchDto dto, Pageable pageable) {
         // 페이지 번호를 number로 주시면 안됨! page로 전달해 주셔야 합니다!
         // 사용자가 선택한 페이지 번호 -1을 클라이언트 단에서 해서 전달해 주셔야 합니다.
         log.info("/product/list: GET, pageable: {}", pageable);
-        List<ProductResDto> dtoList = productService.productList(pageable);
+        log.info("dto: {}", dto);
+        List<ProductResDto> dtoList = productService.productList(dto, pageable);
 
         CommonResDto resDto
                 = new CommonResDto(HttpStatus.OK, "상품 리스트 정상 조회", dtoList);
