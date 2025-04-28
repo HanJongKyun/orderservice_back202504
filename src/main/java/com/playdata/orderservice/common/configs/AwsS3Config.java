@@ -6,8 +6,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectAclRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 // AWS에 연결에서 S3에 관련된 서비스를 실행하는 전용 객체
 @Component
@@ -31,7 +34,7 @@ public class AwsS3Config {
     private void initializeAmazonS3Client() {
 
         // 액세스 키와 시크릿 키를 이용해서 계정 인증 받기
-        AwsBasicCredentials credentials 
+        AwsBasicCredentials credentials
                 = AwsBasicCredentials.create(accessKey, secretKey);
 
         // 지역 설정 및 인증 정보를 담은 S3Client 객체를 위의 변수에 세팅
@@ -42,5 +45,26 @@ public class AwsS3Config {
 
     }
 
+    /**
+     * 버킷에 파일을 업로드하고, 업로드한 버킷의 url 정보를 리턴
+     * @param uploadFile - 업로드 할 파일의 실제 raw 데이터
+     * @param fileName - 업로드 할 파일명
+     * @return - 버킷에 업로드 된 버킷 경로(url)
+     */
+    public String uploadToS3Bucket(byte[] uploadFile, String fileName) {
+        // 업로드 할 파일을 S3 오브젝트로 생성
+        PutObjectRequest request = PutObjectRequest.builder()
+                .bucket(bucketName) // 버킷 이름
+                .key(fileName) // 저장될 파일명
+                .build();
 
+        // 오브젝트를 버킷에 업로드
+        // (위에서 선언한 객체, 업로드 하고자 하는 파일 (바이트 배열))
+        s3Client.putObject(request, RequestBody.fromBytes(uploadFile));
+
+        // 업로드 되는 파일의 url을 리턴 -> DB에 저장.
+        return s3Client.utilities()
+                .getUrl(b -> b.bucket(bucketName).key(fileName))
+                .toString();
+    }
 }
