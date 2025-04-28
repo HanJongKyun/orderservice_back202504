@@ -9,10 +9,14 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.PutObjectAclRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-// AWS에 연결에서 S3에 관련된 서비스를 실행하는 전용 객체
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLDecoder;
+
+// AWS에 연결해서 S3에 관련된 서비스를 실행하는 전용 객체
 @Component
 @Slf4j
 public class AwsS3Config {
@@ -47,8 +51,9 @@ public class AwsS3Config {
 
     /**
      * 버킷에 파일을 업로드하고, 업로드한 버킷의 url 정보를 리턴
+     *
      * @param uploadFile - 업로드 할 파일의 실제 raw 데이터
-     * @param fileName - 업로드 할 파일명
+     * @param fileName   - 업로드 할 파일명
      * @return - 버킷에 업로드 된 버킷 경로(url)
      */
     public String uploadToS3Bucket(byte[] uploadFile, String fileName) {
@@ -66,5 +71,37 @@ public class AwsS3Config {
         return s3Client.utilities()
                 .getUrl(b -> b.bucket(bucketName).key(fileName))
                 .toString();
+
+    }
+
+    // 버킷에 업로드 된 이미지를 삭제하는 로직
+    // 버킷에 오브젝트를 지우기 위해서는 키값을 줘야 하는데
+    // 우리가 가지고 있는 건 키가 아니라 url입니다.
+
+    // 우리가 가진 데이터: https://orderservice-prod-img8917.s3.ap-northeast-2.amazonaws.com/74b59c79-d5da-4d05-b99a-557f00b4da07_fileName.gif
+    // 가공 결과: 74b59c79-d5da-4d05-b99a-557f00b4da07_fileName.gif
+    public void deleteFromS3Bucket(String imageUrl) throws Exception {
+
+        URL url = new URL(imageUrl);
+
+        // getPath()를 통해 key값 앞에 "/"까지 포함해서 제거.
+        String decodingKey = URLDecoder.decode(url.getPath(), "UTF-8");
+        String key = decodingKey.substring(1); // 앞에 / 떼기
+
+        DeleteObjectRequest request = DeleteObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+
+        s3Client.deleteObject(request);
     }
 }
+
+
+
+
+
+
+
+
+

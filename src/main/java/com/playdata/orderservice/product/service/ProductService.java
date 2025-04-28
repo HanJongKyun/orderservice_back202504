@@ -6,6 +6,7 @@ import com.playdata.orderservice.product.dto.ProductSaveReqDto;
 import com.playdata.orderservice.product.dto.ProductSearchDto;
 import com.playdata.orderservice.product.entity.Product;
 import com.playdata.orderservice.product.repository.ProductRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -13,7 +14,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.services.s3.S3Configuration;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,20 +28,21 @@ import java.util.stream.Collectors;
 public class ProductService {
 
     private final ProductRepository productRepository;
-    private final AwsS3Config s3config;
+    private final AwsS3Config s3Config;
 
     public Product productCreate(ProductSaveReqDto dto) throws IOException {
+
         MultipartFile productImage = dto.getProductImage();
-        
+
         // 상품을 등록하는 과정에서, 이미지 이름의 충돌이 발생할 수 있기 때문에
         // 랜덤한 문자열을 섞어서 파일 중복을 막아주자.
         String uniqueFileName
                 = UUID.randomUUID() + "_" + productImage.getOriginalFilename();
 
-       /*
+        /*
         // 특정 로컬 경로에 이미지를 전송하고, 그 경로를 Entity에 세팅하자.
         File file
-                = new File("C:\\Users\\play data\\Desktop\\playdata_8th_develop\\upload\\" + uniqueFileName);
+                = new File("/Users/stephen/Desktop/playdata_8th_develop/upload/" + uniqueFileName);
 
         try {
             productImage.transferTo(file);
@@ -49,15 +50,16 @@ public class ProductService {
             throw new RuntimeException("이미지 저장 실패!");
         }
         */
-        
+
         // 더 이상 로컬 경로에 이미지를 저장하지 않고, s3 버킷에 저장
         String imageUrl
-                = s3config.uploadToS3Bucket(productImage.getBytes(), uniqueFileName);
+                = s3Config.uploadToS3Bucket(productImage.getBytes(), uniqueFileName);
 
         Product product = dto.toEntity();
         product.setImagePath(imageUrl); // 파일명이 아닌 S3 오브젝트의 url이 저장될 것이다.
 
         return productRepository.save(product);
+
     }
 
     public List<ProductResDto> productList(ProductSearchDto dto, Pageable pageable) {
@@ -67,7 +69,7 @@ public class ProductService {
         } else if (dto.getCategory().equals("name")) {
             products = productRepository.findByNameValue(dto.getSearchName(), pageable);
         } else {
-            products = productRepository.findByCategoryValue(dto.getCategory(), pageable);
+            products = productRepository.findByCategoryValue(dto.getSearchName(), pageable);
         }
 
         List<Product> productList = products.getContent();
@@ -77,4 +79,22 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
+    public void productDelete(Long id) throws Exception {
+        Product product = productRepository.findById(id).orElseThrow(
+                () -> new EntityNotFoundException("Product with id: " + id + " not found")
+        );
+
+        String imageUrl = product.getImagePath();
+        s3Config.deleteFromS3Bucket(imageUrl);
+
+        productRepository.deleteById(id);
+    }
 }
+
+
+
+
+
+
+
+

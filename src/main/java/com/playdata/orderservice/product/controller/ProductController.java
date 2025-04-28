@@ -12,10 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.List;
@@ -31,8 +28,8 @@ public class ProductController {
     // 상품 등록 요청
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/create")
-    public ResponseEntity<?> createProduct(ProductSaveReqDto dto) throws IOException {
-
+    public ResponseEntity<?> createProduct(ProductSaveReqDto dto)
+            throws IOException {
         /*
         상품 등록 요청은 여러 데이터와 함께 이미지가 전달될 것입니다.
         1. JS의 formData 객체를 통해 모든 데이터를 전달 (JSON 형태가 아니라, multipart/form-data 형식)
@@ -52,10 +49,9 @@ public class ProductController {
 
     // 요청방식: GET, 요청 URL: /product/list
     // 따로 권한은 필요 없습니다. (누구나 요청이 가능합니다. 로그인 안해도 됩니다.)
-    // 페이징이 필요합니다. -> 클라이언트 쪽에서 페이지 번호와 한 화면에 보여질 상품 개수, 정렬 방식이 넘
+    // 페이징이 필요합니다. -> 클라이언트 쪽에서 페이지 번호와 한 화면에 보여질 상품 개수, 정렬 방식이 넘어와요.
     // 리턴은 ProductResDto 형태로 리턴됩니다.
     // ProductResDto(id, name, category, price, stockQuantity, imagePath)
-
     @GetMapping("/list")
     public ResponseEntity<?> listProduct(ProductSearchDto dto, Pageable pageable) {
         // 페이지 번호를 number로 주시면 안됨! page로 전달해 주셔야 합니다!
@@ -70,6 +66,25 @@ public class ProductController {
         return ResponseEntity.ok().body(resDto);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> deleteProduct(@RequestParam("id") Long id) throws Exception {
+        log.info("/product/delete: DELETE, id: {}", id);
+        productService.productDelete(id);
+
+        CommonResDto resDto
+                = new CommonResDto(HttpStatus.OK, "삭제 완료", id);
+
+        return ResponseEntity.ok().body(resDto);
+    }
 
 }
+
+
+
+
+
+
+
+
 
