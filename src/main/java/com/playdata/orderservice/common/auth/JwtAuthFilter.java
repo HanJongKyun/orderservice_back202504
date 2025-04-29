@@ -18,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -48,7 +49,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 // spring security에게 전달할 인가 정보 리스트를 생성. (권한 정보)
                 // 권한이 여러 개 존재할 경우 리스트로 권한 체크에 사용할 필드를 add. (권한 여러개면 여러번 add 가능)
                 // 나중에 컨트롤러의 요청 메서드마다 권한을 파악하게 하기 위해 미리 저장을 해 놓는 것.
-                ArrayList<SimpleGrantedAuthority> authorityList = new ArrayList<>();
+                List<SimpleGrantedAuthority> authorityList = new ArrayList<>();
                 // ROLE_USER, ROLE_ADMIN (ROLE_ 접두사는 필수입니다.
                 // 나중에 role 꺼내올 때 시큐리티가 ROLE_를 붙여서 검색을 합니다.
                 authorityList.add(new SimpleGrantedAuthority("ROLE_" + userInfo.getRole().toString()));
